@@ -1,4 +1,10 @@
+/*  
+	BUT : 
+	CE FICHIER D'EN-TÊTE PERMET DE GARDER LES STRUCTURES,LES CONSTANTES ET LES VARIABLES GLOBALES POUR QU'ELLES SOIENT APPELÉS DANS LES
+	AUTRES FICHIERS 
+*/
 #pragma once 
+
 #include <windows.h>
 #include <string>
 
@@ -40,9 +46,9 @@ struct Participant
 
 // VARIABLES GLOBALES EXTERNES 
 extern size_t noParticipant;
-extern string nameFile;
+extern size_t nbParticipant;
 
-// LES PROTOTYPES DE FONCTIONS
+// LES PROTOTYPES DE FONCTIONS POUR DB.CPP
 int db_size();
 void db_read(size_t noParticipant, Participant* p);
 void db_write(size_t noParticipant, Participant* p);
