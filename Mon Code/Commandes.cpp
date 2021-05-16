@@ -12,7 +12,7 @@ using namespace std;
 
 #pragma warning (disable:6031)	//_getch()
 
-// DÉFINITION DES FONCTIONS SECONDAIRES AU PROGRAMME
+// DÉFINITION DES FONCTIONS D'AFFICHAGES
 void affichage(size_t no, Participant& p)
 {
 	clrscr();
@@ -26,25 +26,23 @@ void affichage(size_t no, Participant& p)
 	gotoxy(4, 12);	cout << "Liste des dépenses (Max 10)";
 }
 
-void affichage_Depenses(Participant* p)
+void affichage_Depenses(Participant& p)
 {
-	double MontantDepense = 0;
 	int y = 14;
+	double montantDepense = 0;
 
-	if (p->nbDepenseActuel >= 1)
+	if (p.nbDepenseActuel >= 1)
 	{
-		for (int i = 0; i < p->nbDepenseActuel; ++i)
+		for (int i = 0; i < p.nbDepenseActuel; ++i)
 		{
+			gotoxy(4, 14); cout << "     "; // EFFACER L'ANCIEN MESSAGE
 
-			gotoxy(4, 14); cout << "     ";	// EFFACE L'ANCIEN MESSAGE
-			gotoxy(9, y++); cout << i + 1 << ". " << mani_date(p->liste_depense[i].dateHeureDepense) 
-								 << " - " << mani_temps(p->liste_depense[i].dateHeureDepense)
-								 << "    " << p->liste_depense[i].montant << " $  " 
-								 << p->liste_depense[i].description;
-			
+			gotoxy(9, y++);
+			cout << (i+1)<< ". " << mani_date(p.liste_depense[i].dateHeureDepense) << " - " << mani_temps(p.liste_depense[i].dateHeureDepense)
+				<< "    " << p.liste_depense[i].montant << " $  " << p.liste_depense[i].description;
 		}
 		gotoxy(33, y);		cout << "-----------";
-		/*gotoxy(35, y += 1);	sommeDepenseParticipant(MontantDepense, p);*/
+		gotoxy(35, y += 1); sommeDepenseParticipant(montantDepense, p); cout << " $";
 	}
 	else
 	{
@@ -52,6 +50,20 @@ void affichage_Depenses(Participant* p)
 	}
 }
 
+void affichage_QuitterCommande()
+{
+	mani_message("Dépenses enregistrées !", cvmColor::JAUNE, 4, 28);
+	_getch();
+	clrscr();
+}
+
+void affichage_QuitterCommandeDepense()
+{
+	mani_message("Dépenses supprimées enregistrées !", cvmColor::JAUNE, 4, 28);
+	_getch(); clrscr();
+}
+
+// DÉFINITION DES FONCTIONS DE VALIDATION ET DE SOMMATION
 double lireUnMontantValide(double max)
 {
 	bool montantValide = false;
@@ -75,14 +87,87 @@ double lireUnMontantValide(double max)
 	return mani_round(montantDepense, 2);
 }
 
-double sommeDepenseParticipant(double MontantDepense,Participant* p)
+double sommeDepenseParticipant(double MontantDepense,Participant& p)
 {
-	for (int i = 0; i < p->nbDepenseActuel; ++i)
+	for (int i = 0; i < p.nbDepenseActuel; ++i)
 	{
-		MontantDepense += p->liste_depense[i].montant;
+		MontantDepense += p.liste_depense[i].montant;
 	}
-	cout << " " << MontantDepense << " $";
+	cout << " " << MontantDepense;
 	return mani_round(MontantDepense, 2);
+}
+
+double sommeQuotePart(double Total, size_t no)
+{
+	return mani_round(Total / no, 2);
+}
+
+// DÉFINITION DES FONCTIONS D'INPUT
+void input_Depense_Description(Participant& participant)
+{ 
+	mani_deleteMessage(4, 28);
+	gotoxy(4, 25); cout << "Montant: ";		participant.liste_depense[participant.nbDepenseActuel].montant = lireUnMontantValide(MontantDep_Max);
+	gotoxy(4, 26); cout << "Description: "; mani_clean(); mani_lireString(Longeur_Descript, participant.liste_depense[participant.nbDepenseActuel].description);
+
+	participant.liste_depense[participant.nbDepenseActuel].dateHeureDepense = time(NULL);
+	cvmResetColor();
+	mani_deleteMessage(4, 25);  mani_deleteMessage(4, 26);
+}
+
+int lire_no_Supprimer(int nbDepenses)
+{
+	bool noDepense = false;
+	int input,x = 4, y = 28;
+
+	gotoxy(x, y); cout << "Dépense no (0 pour annuler) : ";
+	x = wherex(), y = wherey();
+
+	do
+	{
+		gotoxy(x, y); clreoscr();
+		cin >> input;
+
+		if (cin.fail() || input > nbDepenses)
+		{
+			mani_clean();
+		}
+		else
+		{
+			noDepense = true;
+		}
+
+	} while (!noDepense);
+	return input;
+}
+
+// FONCTIONS DE MODIFICATION DE VALEUR
+void supprimer_Client(int participant,Participant& p)
+{
+	for (int c = participant-1; c < p.nbDepenseActuel; ++c)
+		p.liste_depense[c] = p.liste_depense[c + 1];
+	p.liste_depense[--p.nbDepenseActuel] = {};
+}
+
+void supprimer_Depenses_Total(Participant& p)
+{
+	for (int i = 0; i < p.nbDepenseActuel; ++i)
+	{
+		p.liste_depense[i] = {};
+	}
+	p.nbDepenseActuel = 0;
+}
+
+// FONCTIONS DE VÉRIFICATION D'INPUT 
+void noDepenseValideEtAffichage(size_t no, int noInput, Participant& p)
+{
+	if (noInput != 0)
+	{
+		supprimer_Client(noInput, p);
+		clrscr();
+		cvmResetColor();
+		affichage(no, p);
+		affichage_Depenses(p);
+	}
 }
 
 // DÉFINITION DES COMMANDES PRINCIPALES
@@ -139,7 +224,7 @@ void CMD_AfficherUnParticipant()
 	{
 		db_read(no, &participant);
 		affichage(no,participant);
-		affichage_Depenses(&participant);
+		affichage_Depenses(participant);
 		mani_appuyerSurUneTouchePourContinuer(4, 28);
 		clrscr();
 	}
@@ -149,8 +234,7 @@ void CMD_AjouterDesDepenses()
 {
 	Participant participant;
 	size_t no, dbsize = db_size();
-	bool Ajout_Depense = false; // VARIABLE POUR LE DO WHILE 
-	int i = 1;
+	bool quitCommande = false;
 
 	mani_clean();
 
@@ -165,57 +249,49 @@ void CMD_AjouterDesDepenses()
 	{
 		db_read(no, &participant);
 		affichage(no, participant);
-		affichage_Depenses(&participant);
+		affichage_Depenses(participant);
 		mani_clean();
 
 		if (participant.nbDepenseActuel == 10)
 		{
 			mani_message("Le maximum de 10 dépenses est déjà atteint !", cvmColor::JAUNE, 4, 28);
-			_getch();
-			clrscr();
+			_getch(); clrscr();
 		}
 		else
 		{
 			if (mani_lireQuestionOuiNon("Désirez-vous ajouter une dépense", cvmColor::JAUNE, 4, 28))
 			{
-				mani_deleteMessage(4, 28);
-				gotoxy(4, 25); cout << "Montant: ";		participant.liste_depense[0].montant = lireUnMontantValide(MontantDep_Max);
-				gotoxy(4, 26); cout << "Description: "; mani_clean(); mani_lireString(Longeur_Descript, participant.liste_depense[0].description);
-
-				participant.liste_depense[0].dateHeureDepense = time(NULL);
+				input_Depense_Description(participant);
 				participant.nbDepenseActuel++;
-
-				cvmResetColor();
-				affichage_Depenses(&participant);
-				mani_deleteMessage(4, 25);  mani_deleteMessage(4, 26);
+				affichage_Depenses(participant);
 				db_write(no, &participant);
 
-				if (mani_lireQuestionOuiNon("Désirez-vous ajouter une autre dépense", cvmColor::JAUNE, 4, 28))
+				do
 				{
-					mani_deleteMessage(4, 28);
-					gotoxy(4, 25); cout << "Montant: ";		participant.liste_depense[1].montant = lireUnMontantValide(MontantDep_Max);
-					gotoxy(4, 26); cout << "Description: "; mani_clean(); mani_lireString(Longeur_Descript, participant.liste_depense[1].description);
+					if (mani_lireQuestionOuiNon("Désirez-vous ajouter une autre dépense", cvmColor::JAUNE, 4, 28))
+					{
+						input_Depense_Description(participant);
+						participant.nbDepenseActuel++;
+						affichage_Depenses(participant);
+						db_write(no, &participant);
 
-					participant.liste_depense[1].dateHeureDepense = time(NULL);
-					participant.nbDepenseActuel++;
-
-					cvmResetColor();
-					affichage_Depenses(&participant);
-					mani_deleteMessage(4, 25);  mani_deleteMessage(4, 26);
-					db_write(no, &participant);
-				}
-				else
-				{
-					mani_message("Dépenses enregistrées !", cvmColor::JAUNE, 4, 28); 
-					_getch();
-					clrscr();
-				}
+						if (participant.nbDepenseActuel == 10)
+						{
+							quitCommande = true;
+							affichage_QuitterCommande();
+						}
+					}
+					else
+					{
+						quitCommande = true;
+						affichage_QuitterCommande();
+					}
+				} while (participant.nbDepenseActuel < nbDepenseMax && !quitCommande);
 			}
 			else
 			{
 				clrscr();
 			}
-			
 		}
 	}
 }
@@ -223,25 +299,74 @@ void CMD_AjouterDesDepenses()
 void CMD_SupprimerDesDepenses()
 {
 	Participant participant;
-	size_t no, dbsize = db_size();
+	size_t no,dbsize = db_size();
+	int indDep;		// INDICE AUQUEL LA DÉPENSE DOIT ÊTRE SUPPRIMÉ
+	bool quitterCommande = false;
 
 	mani_clean();
 
 	cvmSetColor(cvmColor::JAUNE);
 	gotoxy(4, 28); cout << "Numéro du participant : "; cin >> no;
 
-	
+	if (cin.fail() || no <= 0 || no > dbsize)
+	{
+		cin.clear(); clrscr();
+	}
+	else
+	{
+		db_read(no, &participant);
+		affichage(no, participant);
+		affichage_Depenses(participant);
+		mani_clean();
 
-	_getch();
+		if (participant.nbDepenseActuel == 0)
+		{
+			mani_message("Ce participant n'a pas de dépense à son dossier!", cvmColor::JAUNE, 4, 28);
+			_getch(); clrscr();
+		}
+		else
+		{
+			if (mani_lireQuestionOuiNon("Désirez-vous supprimer une dépense", cvmColor::JAUNE, 4, 28))
+			{
+				indDep = lire_no_Supprimer(participant.nbDepenseActuel);
+				noDepenseValideEtAffichage(no,indDep, participant);
+				db_write(no, &participant);
+
+				do
+				{
+					if (mani_lireQuestionOuiNon("Désirez-vous supprimer une autre dépense", cvmColor::JAUNE, 4, 28))
+					{
+						indDep = lire_no_Supprimer(participant.nbDepenseActuel);
+						noDepenseValideEtAffichage(no,indDep, participant);
+						db_write(no, &participant);
+
+						if (participant.nbDepenseActuel == 0)
+						{
+							quitterCommande = true;
+							affichage_QuitterCommandeDepense();
+						}
+					}
+					else
+					{
+						quitterCommande = true;  
+						affichage_QuitterCommandeDepense();
+					}
+				} while (!quitterCommande || indDep == 0);
+			}
+			else
+			{
+				clrscr();
+			}
+		}
+	}
 }
 
 void CMD_AfficherEtatDesComptes()
 {
 	Participant participant;
 	size_t dbsize = db_size();
-	double quote_part = 0, montantDepense = 0;
+	double montantDepense = 0, MontantTotal = 0, QuotePart = 0;
 	int y = 4;
-
 	clrscr();
 	mani_clean();
 
@@ -249,26 +374,25 @@ void CMD_AfficherEtatDesComptes()
 	gotoxy(4, 0);	cout << "LE RÉPARTITEUR DE DÉPENSES";
 	gotoxy(4, 1);	cout << "--------------------------"; cvmResetColor();
 	gotoxy(74, 0);	cout << db_size() << " participant" << "\n\n\n\n";
-	gotoxy(4, 3); cout << "ÉTAT DES COMPTES  (date: " << mani_date(time(NULL)) << " - " << mani_temps(time(NULL)) << ")   quote-part : " << quote_part;
 
 	if (dbsize >= 1)
 	{
-		/*quote_part = montantTotalDepensésdetouslesparticipant / dbsize */
 		for (unsigned no = 1; no <= dbsize; no++)
 		{
 			db_read(no, &participant);
-			gotoxy(8, y += 2);	cout << no << ") " << participant.prenom << " " << participant.nom; 
-			gotoxy(56, y);		cout << "Dépenses :       "; sommeDepenseParticipant(montantDepense, &participant);
+			gotoxy(8, y += 2);	cout << no << ") " << participant.prenom << " " << participant.nom;
+			gotoxy(56, y);		cout << "Dépenses :      "; MontantTotal += sommeDepenseParticipant(montantDepense, participant); cout << "  $";
+			gotoxy(4, 3); cout << "ÉTAT DES COMPTES  (date: " << mani_date(time(NULL)) << " - " << mani_temps(time(NULL)) << ")   quote-part : ";
 		}
-		gotoxy(53, y += 3); cout << "Grand Total :       "; /*montant total de tous les participant*/
-		mani_appuyerSurUneTouchePourContinuer(4, y+=2);
+		gotoxy(53, y += 3); cout << "Grand Total :       " << MontantTotal << "  $";
+		mani_appuyerSurUneTouchePourContinuer(4, y += 2);
 	}
 	else
 	{
-		gotoxy(53, 7); cout << "Grand Total :       "; /*quote_part = 0.00 $*/
+		gotoxy(4, 3); cout << "ÉTAT DES COMPTES  (date: " << mani_date(time(NULL)) << " - " << mani_temps(time(NULL)) << ")   quote-part : " << QuotePart << "   $";
+		gotoxy(53, 7); cout << "Grand Total :       " << MontantTotal << "   $";
 		mani_appuyerSurUneTouchePourContinuer(4, 9);
 	}
-
 	clrscr();
 }
 
@@ -286,7 +410,15 @@ void CMD_SupprimerTousLesParticipants()
 	
 	if (mani_lireQuestionOuiNon("Voulez-vous supprimer seulement les dépenses des participants", cvmColor::JAUNE, 4, 26))
 	{
-		/*EFFACE LES DÉPENSES DE TOUS LES PARTICIPANTS*/
+		if (dbsize > 0)
+		{
+			for (unsigned no = 1; no <= dbsize; no++)
+			{
+				db_read(no, &participant);
+				supprimer_Depenses_Total(participant);
+				db_write(no, &participant);
+			}
+		}
 	}
 	else
 		if (mani_lireQuestionOuiNon("Voulez-vous supprimer tous les participants", cvmColor::JAUNE, 4, 28))
@@ -301,7 +433,7 @@ void CMD_QuitterLeProgramme()
 
 	clrscr();
 	cvmSetColor(cvmColor::ROUGE);
-	gotoxy(20, 15);
+	gotoxy(18, 15);
 
 	string message1[sizeMessage1] = { "M","E","R","C","I"," ","D","'"," ","A","V","O","I","R"," ","U","T","I","L","I","S","É"," ", "C","E"," ","P","R","O","G","R","A","M","M","E"};
 
@@ -310,8 +442,5 @@ void CMD_QuitterLeProgramme()
 		Sleep(35); cout << " " << message1[i];
 	}
 
-	_getch();
+	Sleep(2000);
 }
-
-
-
